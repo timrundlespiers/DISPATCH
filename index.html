@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DISPATCH</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DISPATCH">
+<meta name="theme-color" content="#0e1420">
+<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+  html,body{margin:0;height:100%;background:#0e1420;color:#ffb257;
+    font-family:ui-monospace,Menlo,monospace;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:20px;text-align:center;padding:24px}
+  img{width:96px;height:96px}
+  a{color:#ffb257}
+  .sp{font-size:13px;letter-spacing:.2em;color:#8fa0bd}
+</style>
+<script>
+  // Redirect to the live Apps Script board. Replace URL below if it ever changes.
+  var BOARD_URL = "https://script.google.com/a/macros/matternet.com/s/AKfycbzS19Epye6Xbjoe5AccuOiQe6JQbMLPUgXWcFU5WRs_190RF0fQJgg_jsaG2HRwPGjB/exec";
+  // Only redirect when launched (not while editing). Small delay so icon installs cleanly.
+  window.addEventListener('load', function(){
+    setTimeout(function(){ window.location.replace(BOARD_URL); }, 400);
+  });
+</script>
+</head>
+<body>
+  <img src="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_180.png" alt="Dispatch Board">
+  <div class="sp">OPENING DISPATCH BOARD…</div>
+  <div style="font-size:12px"><a id="manual" href="#">Tap here if it doesn't open</a></div>
+  <script>document.getElementById('manual').href = BOARD_URL;</script>
+</body>
+</html>
