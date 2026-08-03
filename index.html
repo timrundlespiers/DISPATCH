@@ -14,28 +14,117 @@
 <link rel="icon" type="image/png" sizes="512x512" href="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_512.png">
 <link rel="manifest" href="manifest.json">
 <style>
-  html,body{margin:0;height:100%;background:#0e1420;color:#ffb257;
+  :root{--amber:#ffb257;--navy:#0e1420;--muted:#8fa0bd;--line:#2a3650;--panel:#161e2e;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--navy);color:var(--amber);
     font-family:ui-monospace,Menlo,monospace;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:22px;text-align:center;padding:24px}
-  img{width:110px;height:110px}
-  .open{display:inline-block;padding:14px 26px;border:1px solid #ffb257;border-radius:10px;
-    color:#ffb257;text-decoration:none;font-size:14px;letter-spacing:.15em}
-  .sp{font-size:12px;letter-spacing:.2em;color:#8fa0bd}
+    align-items:center;justify-content:center;gap:20px;text-align:center;padding:28px;min-height:100%}
+  img{width:104px;height:104px}
+  .title{font-size:15px;letter-spacing:.18em;font-weight:700}
+  .btns{display:flex;flex-direction:column;gap:12px;width:100%;max-width:280px;margin-top:4px}
+  .btn{display:block;padding:15px 20px;border-radius:11px;text-decoration:none;
+    font-size:14px;letter-spacing:.12em;font-weight:700;cursor:pointer;border:none;font-family:inherit}
+  .btn-open{background:var(--amber);color:var(--navy)}
+  .btn-install{background:transparent;color:var(--amber);border:1px solid var(--amber)}
+  .hint{font-size:11px;line-height:1.6;color:var(--muted);letter-spacing:.03em;max-width:300px;margin-top:4px}
+  .hint b{color:#e8ecf4}
+  .warn{font-size:11px;color:var(--muted);background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;padding:10px 12px;max-width:300px;line-height:1.6;margin-top:2px}
+  .warn b{color:var(--amber)}
+  #installHint{display:none}
 </style>
 <script>
   var BOARD_URL = "https://script.google.com/a/macros/matternet.com/s/AKfycbzS19Epye6Xbjoe5AccuOiQe6JQbMLPUgXWcFU5WRs_190RF0fQJgg_jsaG2HRwPGjB/exec";
+  var deferredPrompt = null;
+
   function isStandalone(){
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   }
-  window.addEventListener('load', function(){
-    if (isStandalone()){ window.location.replace(BOARD_URL); }
+  function isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+  function inApp(){
+    // crude detection of in-app browsers (Slack, etc.) that can't install
+    return /slack|fban|fbav|instagram|line|wv\)/i.test(navigator.userAgent);
+  }
+
+  // Capture Android's install prompt so our button can trigger it directly
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredPrompt = e;
   });
+
+  window.addEventListener('load', function(){
+    // If launched from the installed icon, go straight to the board
+    if (isStandalone()){ window.location.replace(BOARD_URL); return; }
+
+    document.getElementById('openBtn').href = BOARD_URL;
+
+    var hint = document.getElementById('installHint');
+    hint.style.display = 'block';
+    if (inApp()){
+      // In-app browser (e.g. Slack) - installing won't work here
+      if (/android/i.test(navigator.userAgent)){
+        document.getElementById('chromeBtn').style.display = 'block';
+        document.getElementById('installBtn').style.display = 'none';
+        hint.innerHTML = 'You\\u2019re in an in-app browser. Tap <b>Open in Chrome</b> above to install the app.';
+      } else {
+        hint.innerHTML = 'To install: tap the <b>&#8942; menu</b> and choose <b>Open in Safari</b>, then <b>Share &rarr; Add to Home Screen</b>.';
+      }
+    } else if (isIOS()){
+      hint.innerHTML = 'iPhone: tap the <b>Share</b> icon, then <b>Add to Home Screen</b>.';
+    } else {
+      hint.innerHTML = 'Android: tap <b>Install app</b> below (or Chrome <b>&#8942; menu &rarr; Install app</b>).';
+    }
+  });
+
+  function isAndroid(){ return /android/i.test(navigator.userAgent); }
+
+  function openInChrome(){
+    // Android intent URL: forces the page to open in Chrome from an in-app browser
+    var host = location.host + location.pathname;
+    var intent = 'intent://' + host + '#Intent;scheme=https;package=com.android.chrome;end';
+    window.location.href = intent;
+  }
+
+  function doInstall(){
+    if (deferredPrompt){
+      // We're in a real browser that supports install - do it directly
+      deferredPrompt.prompt();
+      deferredPrompt = null;
+      return;
+    }
+    if (inApp() && isAndroid()){
+      // In Slack/other in-app browser on Android - jump to Chrome
+      openInChrome();
+      return;
+    }
+    if (inApp() && isIOS()){
+      alert('On iPhone, tap the browser menu and choose "Open in Safari", then use Share \u2192 Add to Home Screen.');
+      return;
+    }
+    if (isIOS()){
+      alert('On iPhone: tap the Share icon, then "Add to Home Screen".');
+      return;
+    }
+    // Real Android browser but prompt not ready yet
+    alert('Open the Chrome menu (three dots) and choose "Install app" or "Add to Home screen".');
+  }
 </script>
 </head>
 <body>
   <img src="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_180.png" alt="Flight Dispatch Board">
-  <div class="sp">FLIGHT DISPATCH BOARD</div>
-  <a class="open" id="openBtn" href="#">OPEN BOARD</a>
-  <script>document.getElementById('openBtn').href = BOARD_URL;</script>
+  <div class="title">FLIGHT DISPATCH BOARD</div>
+
+  <div class="btns">
+    <a class="btn btn-open" id="openBtn" href="#">OPEN BOARD</a>
+    <button class="btn btn-install" id="chromeBtn" onclick="openInChrome()" style="display:none">OPEN IN CHROME TO INSTALL</button>
+    <button class="btn btn-install" id="installBtn" onclick="doInstall()">INSTALL APP</button>
+  </div>
+
+  <div class="hint" id="installHint"></div>
+
+  <div class="warn">
+    <b>Note:</b> to install the home-screen app, open this page in <b>Chrome</b> (Android) or <b>Safari</b> (iPhone). It won't install from inside Slack.
+  </div>
 </body>
 </html>
