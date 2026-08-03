@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DISPATCH</title>
+<title>Flight Dispatch Board</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,6 +11,7 @@
 <meta name="theme-color" content="#0e1420">
 <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_512.png">
 <link rel="manifest" href="manifest.json">
 <style>
   html,body{margin:0;height:100%;background:#0e1420;color:#ffb257;
@@ -27,16 +28,13 @@
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   }
   window.addEventListener('load', function(){
-    // If launched from the installed home-screen icon, go straight to the board.
     if (isStandalone()){ window.location.replace(BOARD_URL); }
-    // Otherwise (viewing in a normal browser tab) do NOT auto-redirect, so the
-    // install prompt can complete and grab the icon. User taps the button.
   });
 </script>
 </head>
 <body>
-  <img src="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_180.png" alt="Dispatch Board">
-  <div class="sp">DISPATCH BOARD</div>
+  <img src="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_180.png" alt="Flight Dispatch Board">
+  <div class="sp">FLIGHT DISPATCH BOARD</div>
   <a class="open" id="openBtn" href="#">OPEN BOARD</a>
   <script>document.getElementById('openBtn').href = BOARD_URL;</script>
 </body>

@@ -1,12 +1,23 @@
 {
-  "name": "Dispatch Board",
+  "name": "Flight Dispatch Board",
   "short_name": "DISPATCH",
   "display": "standalone",
-  "start_url": "./icontest.html",
+  "start_url": "./index.html",
+  "scope": "./",
   "background_color": "#0e1420",
   "theme_color": "#0e1420",
   "icons": [
-    {"src": "https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_192.png", "sizes": "192x192", "type": "image/png"},
-    {"src": "https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_512.png", "sizes": "512x512", "type": "image/png"}
+    {
+      "src": "https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
