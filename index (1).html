@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DISPATCH</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DISPATCH">
+<meta name="theme-color" content="#0e1420">
+<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+  html,body{margin:0;height:100%;background:#0e1420;color:#ffb257;
+    font-family:ui-monospace,Menlo,monospace;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;text-align:center;padding:24px}
+  img{width:110px;height:110px}
+  .open{display:inline-block;padding:14px 26px;border:1px solid #ffb257;border-radius:10px;
+    color:#ffb257;text-decoration:none;font-size:14px;letter-spacing:.15em}
+  .sp{font-size:12px;letter-spacing:.2em;color:#8fa0bd}
+</style>
+<script>
+  var BOARD_URL = "https://script.google.com/a/macros/matternet.com/s/AKfycbzS19Epye6Xbjoe5AccuOiQe6JQbMLPUgXWcFU5WRs_190RF0fQJgg_jsaG2HRwPGjB/exec";
+  function isStandalone(){
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  window.addEventListener('load', function(){
+    // If launched from the installed home-screen icon, go straight to the board.
+    if (isStandalone()){ window.location.replace(BOARD_URL); }
+    // Otherwise (viewing in a normal browser tab) do NOT auto-redirect, so the
+    // install prompt can complete and grab the icon. User taps the button.
+  });
+</script>
+</head>
+<body>
+  <img src="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_180.png" alt="Dispatch Board">
+  <div class="sp">DISPATCH BOARD</div>
+  <a class="open" id="openBtn" href="#">OPEN BOARD</a>
+  <script>document.getElementById('openBtn').href = BOARD_URL;</script>
+</body>
+</html>
