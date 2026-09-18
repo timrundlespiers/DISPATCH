@@ -12,7 +12,7 @@ Intended to run once each morning (e.g. 08:00) after the NOTAM reports.
 import os, sys, json, re, importlib.util
 from datetime import datetime
 
-SCRIPTS = os.path.expanduser("~/scripts")
+SCRIPTS = os.environ.get("SCRIPTS_DIR", os.path.dirname(os.path.abspath(__file__)))
 OUT = os.environ.get("OUT_DIR", "/Users/tim.rundle-spiers/Library/CloudStorage/GoogleDrive-tim.rundle-spiers@matternet.com/My Drive/DISPATCH BOARD") + "/routes.js"
 
 
