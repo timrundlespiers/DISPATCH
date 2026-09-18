@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flight Dispatch Board</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DISPATCH">
+  <meta name="theme-color" content="#0e1420">
+  <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/timrundlespiers/DISPATCH/main/icon_180.png">
+  <link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjogIkZsaWdodCBEaXNwYXRjaCBCb2FyZCIsICJzaG9ydF9uYW1lIjogIkRJU1BBVENIIiwgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwZTE0MjAiLCAidGhlbWVfY29sb3IiOiAiIzBlMTQyMCIsICJpY29ucyI6IFt7InNyYyI6ICJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vdGltcnVuZGxlc3BpZXJzL0RJU1BBVENIL21haW4vaWNvbl8xOTIucG5nIiwgInNpemVzIjogIjE5MngxOTIiLCAidHlwZSI6ICJpbWFnZS9wbmciLCAicHVycG9zZSI6ICJhbnkifSwgeyJzcmMiOiAiaHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL3RpbXJ1bmRsZXNwaWVycy9ESVNQQVRDSC9tYWluL2ljb25fNTEyLnBuZyIsICJzaXplcyI6ICI1MTJ4NTEyIiwgInR5cGUiOiAiaW1hZ2UvcG5nIiwgInB1cnBvc2UiOiAiYW55In1dfQ==">
+
+<style>
+  :root{
+    --ink:#0e1420;
+    --panel:#161e2e;
+    --panel-2:#1c2537;
+    --line:#2a3650;
+    --amber:#ffb257;
+    --amber-dim:#c78339;
+    --paper:#e8ecf4;
+    --label:#d6dbe6;
+    --muted:#8fa0bd;
+    --good:#7fd6a4;
+    --warn:#ff8f6b;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:-apple-system,"Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--ink)}
+  body{
+    font-family:var(--sans);color:var(--paper);
+    max-width:420px;margin:0 auto;padding:20px 16px 40px;
+    -webkit-text-size-adjust:100%;
+  }
+  .eyebrow{
+    font-family:var(--mono);font-size:10px;letter-spacing:.22em;
+    color:var(--amber-dim);text-transform:uppercase;margin-bottom:4px;
+  }
+  h1{font-size:20px;font-weight:650;letter-spacing:-.01em;margin-bottom:18px}
+
+  .station-hd{text-align:center;margin-bottom:12px}
+  .station-clock{display:block;width:90%;height:24px;margin:7px auto 0;
+    filter:drop-shadow(0 0 12px rgba(255,178,87,.3))}
+  .station-name{
+    display:block;width:100%;height:30px;
+    filter:drop-shadow(0 0 18px rgba(255,178,87,.25));
+  }
+  .station-sub{
+    font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--muted);
+    text-transform:uppercase;margin-top:5px;
+  }
+  .alt-panel{
+    border:1px solid var(--amber-dim);border-radius:14px;padding:9px 12px;margin-bottom:10px;
+  }
+  .alt-panel .eyebrow{margin-bottom:2px}
+  .alt-panel h1{
+    font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.04em;
+    color:var(--paper);text-transform:uppercase;margin-bottom:7px;
+  }
+  .alt-panel .readout{border:none;background:transparent;padding:2px 0 0;margin-bottom:0}
+  .alt-cols{display:flex;gap:12px}
+  .alt-hint{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+  .alt-col{flex:1;min-width:0;display:flex;flex-direction:column}
+  .alt-col .readout{align-items:flex-start}
+  .alt-col .readout .num{font-size:26px}
+  .alt-col .readout .num small{font-size:12px}
+  .alt-panel .alt-in{margin-bottom:6px}
+  .alt-panel .qnh{margin-bottom:6px}
+  .alt-panel .qnh,.alt-panel .alt-in{padding:6px 10px}
+  .alt-panel .readout .num{font-size:30px}
+  .alt-panel .readout .num small{font-size:13px}
+  .alt-panel .alt-in input{font-size:24px}
+  .alt-panel .tape{width:48px}
+
+  .qnh{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;margin-bottom:10px;
+  }
+  .qnh-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .qnh-label{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--muted)}
+  .qnh-val{display:flex;align-items:baseline;gap:6px}
+  .qnh-val input{
+    width:82px;background:transparent;border:none;border-bottom:1px dashed var(--line);
+    color:var(--amber);font-family:var(--mono);font-size:28px;font-weight:600;
+    text-align:right;outline:none;
+  }
+  .qnh-val input:focus{border-bottom-color:var(--amber)}
+  .qnh-unit{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .qnh-meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;word-break:break-word}
+  .qnh-meta .stn{color:var(--paper)}
+
+  .alt-in{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;margin-bottom:10px;
+  }
+  .alt-in label{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--muted);display:block;margin-bottom:6px}
+  .alt-in .field{display:flex;align-items:baseline;gap:8px}
+  .alt-in input{
+    flex:1;background:transparent;border:none;border-bottom:1px dashed var(--line);
+    color:var(--paper);font-family:var(--mono);font-size:34px;font-weight:600;outline:none;min-width:0;
+  }
+  .alt-in input:focus{border-bottom-color:var(--amber)}
+  .alt-in .unit{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .chips{display:flex;gap:8px;margin-top:12px}
+  .chip{
+    flex:1;padding:8px 0;border-radius:7px;cursor:pointer;
+    background:var(--panel-2);border:1px solid var(--line);
+    color:var(--paper);font-family:var(--mono);font-size:13px;
+  }
+  .chip:active{border-color:var(--amber)}
+  .chip:focus-visible,button.refresh:focus-visible,input:focus-visible,.mode button:focus-visible{
+    outline:2px solid var(--amber);outline-offset:2px;
+  }
+
+  .routes{
+    margin:0 0 14px;border:1px solid var(--amber-dim);border-radius:10px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));padding:12px 14px;
+  }
+  .rt-overall{display:flex;align-items:center;gap:9px;font-family:var(--mono);
+    font-size:15px;font-weight:700;letter-spacing:.04em;color:var(--paper)}
+  .rt-dot{width:11px;height:11px;border-radius:50%;background:var(--muted);flex:none}
+  .rt-dot.go{background:var(--good)}
+  .rt-dot.caution{background:var(--amber)}
+  .rt-dot.nogo{background:var(--warn)}
+  .rt-lines{margin-top:9px;display:flex;flex-direction:column;gap:5px}
+  .rt-line{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;color:var(--paper)}
+  .rt-line .rt-mini{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+  .rt-line .rt-mini.go{background:var(--good)}
+  .rt-line .rt-mini.caution{background:var(--amber)}
+  .rt-line .rt-mini.nogo{background:var(--warn)}
+  .rt-line .rt-name{color:var(--muted);min-width:52px}
+  .rt-line .rt-note{color:var(--muted);font-size:11px}
+  .rt-asof{margin-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted)}
+
+  .readout{
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--amber-dim);border-radius:12px;
+    padding:14px 16px;margin-bottom:10px;display:flex;gap:16px;align-items:center;
+  }
+  .readout .big{flex:1}
+  .readout .big .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--amber-dim);margin-bottom:2px}
+  .readout .big .num{font-family:var(--mono);font-size:44px;font-weight:700;color:var(--amber);line-height:1.05}
+  .readout .big .num small{font-size:16px;color:var(--amber-dim);font-weight:500}
+  .readout .big .delta{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:6px}
+  .readout .big .delta b{color:var(--paper);font-weight:600}
+
+  .tape{width:64px;flex:none}
+  .tape svg{display:block;width:100%;height:auto}
+
+  .mode{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:10px}
+  .mode button{
+    flex:1;padding:10px 0;background:transparent;border:none;cursor:pointer;
+    color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+  }
+  .mode button.on{background:var(--panel-2);color:var(--amber)}
+
+  button.refresh{
+    width:100%;padding:9px 0;border-radius:7px;cursor:pointer;margin-bottom:16px;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--amber);
+    font-family:var(--mono);font-size:12px;letter-spacing:.12em;
+  }
+  button.refresh:active{background:var(--line)}
+
+  .tbl{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px}
+  .tbl .hd,.tbl .rw{display:grid;grid-template-columns:1fr 1fr;padding:9px 16px}
+  .tbl .hd{
+    background:var(--panel-2);font-family:var(--mono);font-size:10px;
+    letter-spacing:.16em;color:var(--muted);border-bottom:1px solid var(--line);
+  }
+  .tbl .rw{font-family:var(--mono);font-size:15px;border-bottom:1px solid var(--line)}
+  .tbl .rw:last-child{border-bottom:none}
+  .tbl .rw span:last-child{color:var(--amber);text-align:right}
+  .tbl .hd span:last-child{text-align:right}
+  .tbl .rw span:first-child{color:var(--paper)}
+
+  .ops{background:var(--panel);border:1px solid var(--amber-dim);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+  .ops h2{font-family:var(--mono);font-size:15px;letter-spacing:.04em;color:var(--paper);font-weight:700;margin-bottom:10px}
+  .ops h2 .ops-name{color:var(--paper)}
+  .ops h2 .ops-date{color:var(--amber)}
+  .ops h2 .ops-date{display:inline-block;margin-top:3px}
+  .ops h2 .ops-upd{color:var(--label);font-weight:400;font-size:12px}
+  .ops .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:12px}
+  .ops .f .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+  .ops .f .v{font-size:13px;color:var(--paper);margin-top:2px;line-height:1.4;word-break:break-word}
+  .ops .f.wide{grid-column:1 / -1}
+  .ops pre{background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:10.5px;line-height:1.55;overflow-x:auto;color:var(--paper);margin-bottom:0}
+  .ops .sum{font-family:var(--mono);font-size:11px;color:var(--paper);border-left:3px solid var(--line);padding-left:8px;line-height:1.6;margin-bottom:10px;white-space:pre-line}
+  .ops .ctx{font-size:10px;color:var(--muted);line-height:1.5}
+  .ops .empty{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+  .hangar{border:1px solid var(--amber-dim);border-radius:10px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));padding:12px 14px;margin-bottom:14px}
+  .hangar h2{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.04em;color:var(--paper);margin-bottom:12px}
+  .ac{border-top:1px solid var(--line);padding:6px 0}
+  .ac:first-of-type{border-top:none}
+  .ac-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ac-id{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--amber);white-space:nowrap}
+  .ac-aw{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--label)}
+  .aw-toggle{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:6px;padding:3px 8px;transition:border-color .12s}
+  .aw-toggle.aw-y{border-color:rgba(61,220,132,.5)}
+  .aw-toggle.aw-n{border-color:var(--warn)}
+  .aw-sep{color:var(--muted);font-family:var(--mono);font-size:11px}
+  .aw-toggle button{background:transparent;border:none;color:var(--muted);font-family:var(--mono);
+    font-size:11px;padding:2px 5px;cursor:pointer;border-radius:4px}
+  .aw-toggle button.on.y{color:#3ddc84;font-weight:700}
+  .aw-toggle button.on.n{color:var(--warn);font-weight:700}
+  .ac-loc{font-family:var(--mono);font-size:11px;color:var(--label);display:flex;align-items:center;gap:5px;min-width:0}
+  .ac-loc select{flex:1;min-width:0;max-width:200px}
+  .ac-loc select{background:var(--panel);color:var(--paper);border:1px solid var(--line);
+    border-radius:6px;font-family:var(--mono);font-size:11px;padding:4px 6px;outline:none}
+  .ac-line{display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
+  .ac-line2{margin-top:5px;flex-wrap:nowrap}
+  .ac-aog{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--label);flex:1;min-width:0}
+  .aog-clear{font-family:var(--mono);font-size:11px;font-weight:700;color:#3ddc84;
+    background:rgba(61,220,132,.12);border:1px solid rgba(61,220,132,.4);border-radius:6px;padding:4px 10px}
+  .aog-note{
+    flex:1;min-width:0;max-width:240px;height:26px;box-sizing:border-box;
+    resize:none;overflow:hidden;white-space:nowrap;
+    font-family:var(--mono);font-size:11px;line-height:1.4;
+    color:var(--warn);background:rgba(255,143,107,.08);
+    border:1px solid var(--warn);border-radius:6px;padding:4px 8px;outline:none;
+  }
+  .aog-note::placeholder{color:rgba(255,143,107,.55)}
+  .aog-note:focus{white-space:pre-wrap;background:rgba(255,143,107,.14)}
+  .mx-note{
+    flex:1;min-width:0;max-width:200px;height:26px;box-sizing:border-box;
+    resize:none;overflow:hidden;white-space:nowrap;
+    font-family:var(--mono);font-size:11px;line-height:1.4;
+    color:var(--amber);background:rgba(255,178,87,.08);
+    border:1px solid var(--amber-dim);border-radius:6px;padding:4px 8px;outline:none;margin-left:6px;
+  }
+  .mx-note::placeholder{color:rgba(255,178,87,.5)}
+  .mx-note:focus{white-space:pre-wrap;background:rgba(255,178,87,.14)}
+
+  .fine{font-size:12px;color:var(--muted);line-height:1.6}
+  .fine b{color:var(--paper);font-weight:600}
+
+  .batt{border:1px solid var(--amber-dim);border-radius:10px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    padding:10px 14px;margin-bottom:10px}
+  .batt-line{display:flex;align-items:center;gap:7px;flex-wrap:nowrap}
+  .batt-line + .batt-line{margin-top:9px}
+  .batt-item{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10.5px;white-space:nowrap;
+    border:1px solid var(--amber-dim);border-radius:6px;padding:4px 7px;background:var(--panel)}
+  .batt-item.no-box{border:none;padding:0;background:none}
+  .bl-orange{color:var(--amber);font-weight:700;font-family:var(--mono);font-size:11px;letter-spacing:.02em}
+  .bl-white{color:var(--label);font-family:var(--mono);font-size:11px;letter-spacing:.02em}
+  .batt-loc-label{margin-right:0}
+  .batt-in{width:34px;background:transparent;color:var(--paper);border:none;
+    font-family:var(--mono);font-size:13px;font-weight:600;text-align:center;
+    padding:0;outline:none;-moz-appearance:textfield}
+  .batt-in::-webkit-outer-spin-button,.batt-in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .batt-in:focus{color:var(--amber)}
+  .batt-in-open{width:40px;font-size:16px;color:var(--amber);font-weight:700}
+  .batt-mx{color:var(--warn);font-family:var(--mono);font-size:13px;font-weight:700;min-width:20px;text-align:center}
+  .batt-warn{font-family:var(--mono);font-size:10px;color:var(--warn);letter-spacing:.02em;white-space:nowrap;flex-shrink:0}
+</style>
+</head>
+<body>
+  <div class="station-hd">
+    <svg class="station-name" viewBox="0 0 300 24" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="150" y="19" text-anchor="middle" font-family="ui-monospace,Menlo,monospace"
+        font-size="21" font-weight="700" letter-spacing="1" fill="#ffb257">FLIGHT DISPATCH BOARD</text>
+    </svg>
+    <svg class="station-clock" id="clockSvg" viewBox="0 0 300 24" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="150" y="19" text-anchor="middle" font-family="ui-monospace,Menlo,monospace"
+        font-size="21" font-weight="700" letter-spacing="2" fill="#ffb257" id="clock">------  --:--:--Z</text>
+    </svg>
+  </div>
+
+  <div class="hangar" id="hangar">
+    <h2>AIRCRAFT HANGAR</h2>
+    <div id="hangarBody"></div>
+  </div>
+
+  <div class="batt" id="batt">
+    <div class="batt-line">
+      <span class="bl-orange batt-loc-label">BATTERIES</span>
+      <input class="batt-in batt-in-open" id="b_total" type="number" inputmode="numeric" min="0" value="0">
+      <span class="batt-item"><span class="bl-white">AIRWORTHY</span>
+        <input class="batt-in" id="b_airworthy" type="number" inputmode="numeric" min="0" value="0"></span>
+      <span class="batt-item"><span class="bl-white">MX</span>
+        <span class="batt-mx" id="b_mx">0</span></span>
+    </div>
+    <div class="batt-line">
+      <span class="bl-orange batt-loc-label">LOCATION</span>
+      <span class="batt-item"><span class="bl-white">GUYS</span>
+        <input class="batt-in" id="b_guys" type="number" inputmode="numeric" min="0" value="0"></span>
+      <span class="batt-item"><span class="bl-white">GOSH</span>
+        <input class="batt-in" id="b_gosh" type="number" inputmode="numeric" min="0" value="0"></span>
+      <span class="batt-item"><span class="bl-white">HQ</span>
+        <input class="batt-in" id="b_hq" type="number" inputmode="numeric" min="0" value="0"></span>
+    </div>
+  </div>
+
+  <div class="routes" id="routes">
+    <div class="rt-overall" id="rtOverall">
+      <span class="rt-dot" id="rtDot"></span>
+      <span id="rtOverallTxt">Awaiting 08:00 status&hellip;</span>
+    </div>
+    <div class="rt-lines" id="rtLines"></div>
+  </div>
+
+  <div class="ops" id="ops">
+    <h2 id="opsTitle"><span class="ops-name">MATTERNET OPS WEATHER</span></h2>
+    <div class="empty" id="opsEmpty">Waiting for ops data&hellip;</div>
+    <div id="opsBody" style="display:none">
+      <div class="fields" id="opsFields"></div>
+      <pre id="opsRows"></pre>
+    </div>
+  </div>
+
+  <div class="alt-panel">
+    <h1>TRAFFIC DECONFLICTION</h1>
+
+    <div class="qnh">
+      <div class="qnh-row" style="display:none">
+        <span class="qnh-label">QNH</span>
+        <span class="qnh-val"><input id="qnh" type="number" inputmode="numeric" value="1013" min="940" max="1060" aria-label="QNH in hectopascals"><span class="qnh-unit">hPa</span></span>
+      </div>
+      <div class="qnh-meta" id="qnhMeta">Fetching QNH&hellip;</div>
+    </div>
+
+    <div class="alt-cols">
+      <div class="alt-col">
+        <div class="alt-in">
+          <label id="altLabel" for="alt">HEMS BARO ALT</label>
+          <div class="field">
+            <input id="alt" type="number" inputmode="numeric" value="476" step="25" aria-label="Target altitude in feet">
+            <span class="unit">ft</span>
+          </div>
+        </div>
+        <div class="readout">
+          <div class="big">
+            <div class="lbl">HEMS TRUE AMSL</div>
+            <div class="num" id="out">&mdash; <small>m</small></div>
+            <div class="delta" id="delta"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="alt-col">
+        <div class="alt-in">
+          <label for="altM">DRONE AMSL</label>
+          <div class="field">
+            <input id="altM" type="number" inputmode="numeric" value="92" step="1" aria-label="Flight height in metres">
+            <span class="unit">m</span>
+          </div>
+        </div>
+        <div class="readout">
+          <div class="big">
+            <div class="lbl">SHOWS ON ADS-B AS</div>
+            <div class="num" id="outM">302 <small>ft</small></div>
+            <div class="delta" id="deltaM">baro equivalent</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const FT_PER_HPA = 27.3;
+  const GEOID_FT = 152;
+  const state = { mode: 'baro', userEdited: false };
+
+  // Until the user types a helicopter's reading, the left box defaults to the
+  // baro altitude equivalent to our own drone height (right column), so both
+  // columns agree and both self-correct as QNH changes.
+  function anchorDefault(){
+    if (!state.userEdited){
+      const m = parseFloat($('altM').value);
+      const c = correction();
+      if (isFinite(m)) $('alt').value = Math.round(m * 3.28084 - c);
+    }
+    render();
+  }
+
+  function correction(){
+    const qnh = parseFloat($('qnh').value);
+    if (state.mode === 'gnss') return -GEOID_FT;
+    if (!isFinite(qnh)) return 0;
+    return (qnh - 1013.25) * FT_PER_HPA;
+  }
+
+  function fmt(n){ return Math.round(n).toLocaleString('en-GB'); }
+
+  function drawTape(inputAlt, trueAlt){
+    const svg = $('tapeSvg');
+    const TOP = 8, BOT = 142, MAX = 1200;
+    const y = ft => BOT - Math.min(Math.max(ft,0),MAX) / MAX * (BOT - TOP);
+    let s = '';
+    s += `<line x1="30" y1="${TOP}" x2="30" y2="${BOT}" stroke="#2a3650" stroke-width="2"/>`;
+    for (let f = 0; f <= MAX; f += 200){
+      s += `<line x1="24" y1="${y(f)}" x2="36" y2="${y(f)}" stroke="#2a3650" stroke-width="1.5"/>`;
+      s += `<text x="20" y="${y(f)+3}" font-size="8" fill="#8fa0bd" text-anchor="end" font-family="ui-monospace,monospace">${f}</text>`;
+    }
+    const yi = y(inputAlt), yt = y(trueAlt);
+    s += `<line x1="30" y1="${yi}" x2="30" y2="${yt}" stroke="#ffb257" stroke-width="2" opacity="0.5"/>`;
+    s += `<circle cx="30" cy="${yi}" r="4" fill="#8fa0bd"/>`;
+    s += `<path d="M 38 ${yt-5} L 30 ${yt} L 38 ${yt+5} Z" fill="#ffb257"/>`;
+    s += `<text x="42" y="${yt+3}" font-size="8" fill="#ffb257" font-family="ui-monospace,monospace">TRUE</text>`;
+    svg.innerHTML = s;
+  }
+
+  function render(){
+    const alt = parseFloat($('alt').value);
+    const c = correction();
+    if (isFinite(alt)){
+      const t = alt + c;
+      const tM = t / 3.28084;
+      $('out').innerHTML = fmt(tM) + ' <small>m</small>';
+      // separation from our drone height (right column)
+      const dm = parseFloat($('altM').value);
+      let sep = '';
+      if (isFinite(dm)){
+        const gap = Math.round(tM - dm);
+        if (gap === 0) sep = ' &middot; <b style="color:var(--warn)">CO-ALTITUDE</b>';
+        else sep = ' &middot; <b>' + (gap > 0 ? '+' : '\u2212') + Math.abs(gap) + ' m</b> vs drone';
+      }
+      $('delta').innerHTML = fmt(t) + ' ft true' + sep;
+      if ($('tapeSvg')) drawTape(alt, t);
+    } else {
+      $('out').innerHTML = '&mdash; <small>m</small>';
+    }
+
+    // Right column: my flight height (m AMSL) -> what it shows as on ADS-B
+    // (baro/Mode C). True feet = m*3.28084; baro shown = true - correction.
+    const m = parseFloat($('altM').value);
+    if ($('outM')){
+      if (isFinite(m)){
+        const trueFt = m * 3.28084;
+        const baroFt = trueFt - c;
+        $('outM').innerHTML = fmt(baroFt) + ' <small>ft</small>';
+        if ($('deltaM')) $('deltaM').innerHTML = '<b>' + fmt(m) + ' m</b> true &middot; ' + fmt(trueFt) + ' ft AMSL';
+      } else {
+        $('outM').innerHTML = '&mdash;';
+      }
+    }
+
+    const tb = $('tblBody');
+    if (tb){
+      let rows = '';
+      for (let f = 250; f <= 1000; f += 250){
+        rows += `<div class="rw"><span>${fmt(f)}</span><span>${fmt(f + c)}</span></div>`;
+      }
+      tb.innerHTML = rows;
+    }
+  }
+
+  function setMode(m){
+    state.mode = m;
+    if ($('mBaro')) $('mBaro').classList.toggle('on', m === 'baro');
+    if ($('mGnss')) $('mGnss').classList.toggle('on', m === 'gnss');
+    if ($('tblHd')) $('tblHd').textContent = m === 'baro' ? 'BARO FT' : 'WGS84 FT';
+    anchorDefault();
+  }
+
+  function renderRoutes(){
+    const R = window.LOCAL_ROUTES;
+    const dot = $('rtDot'), txt = $('rtOverallTxt'), lines = $('rtLines');
+    if (!R || !Array.isArray(R.items)){
+      dot.className = 'rt-dot';
+      txt.textContent = 'NOTAMS - ALL STATIONS \u00b7 awaiting 08:00';
+      lines.innerHTML = '';
+      return;
+    }
+    const norm = r => r.status ? r.status
+                    : (r.go === true ? 'go' : r.go === false ? 'nogo' : 'unknown');
+    const states = R.items.map(norm);
+    let overall, label;
+    if (states.includes('nogo'))        { overall = 'nogo';    label = 'NOGO'; }
+    else if (states.includes('unknown')){ overall = '';        label = 'INCOMPLETE'; }
+    else if (states.includes('caution')){ overall = 'caution'; label = 'GO w/ LIMITS'; }
+    else                                { overall = 'go';      label = 'GO'; }
+    dot.className = 'rt-dot ' + overall;
+
+    // reason = causes from the items actually driving the overall status
+    const drivers = R.items.filter((r, i) => states[i] === (overall || 'unknown'));
+    const causes = [...new Set(drivers.map(r => r.cause).filter(Boolean))];
+    const reason = R.reason || (causes.length ? causes.join(', ') : '');
+    txt.textContent = 'NOTAMS - ALL STATIONS \u00b7 ' + label + (reason ? ' \u00b7 ' + reason.toUpperCase() : '');
+    lines.innerHTML = R.asof ? '<div class="rt-asof">status as of ' + R.asof + '</div>' : '';
+  }
+
+  function renderOps(){
+    const L = window.LOCAL_QNH;
+    if (!L || !L.ops) return;
+    const o = L.ops;
+    const upd = L.t ? '<br><span class="ops-upd">UPDATED ' + L.t + '</span>' : '';
+    $('opsTitle').innerHTML = '<span class="ops-name">MATTERNET OPS WEATHER</span><br><span class="ops-date">' + o.date + upd + '</span>';
+    $('opsFields').innerHTML = o.fields.map((f, i) =>
+      '<div class="f' + (i === o.fields.length - 1 ? ' wide' : '') + '"><div class="k">' + f[0] +
+      '</div><div class="v">' + f[1] + '</div></div>').join('');
+    $('opsRows').textContent = o.rows;
+    $('opsEmpty').style.display = 'none';
+    $('opsBody').style.display = 'block';
+  }
+
+  function loadLocal(cb){
+    google.script.run
+      .withSuccessHandler(L => {
+        if (L){
+          window.LOCAL_QNH = L;
+          if (L.q) $('qnh').value = Math.round(L.q);
+          const now = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+          if ($('qnhMeta')) $('qnhMeta').innerHTML = '<span class="stn">' +
+            (L.raw ? L.raw.slice(0, 60) : 'EGLC QNH ' + Math.round(L.q)) + '</span>' +
+            (L.t ? ' \u00b7 data ' + L.t : '') + ' \u00b7 checked ' + now;
+          anchorDefault();
+          renderOps();
+        } else if ($('qnhMeta')) {
+          $('qnhMeta').textContent = 'Weather unavailable';
+        }
+        if (cb) cb(!!L);
+      })
+      .withFailureHandler(err => { console.error('weather', err); if (cb) cb(false); })
+      .getWeather();
+  }
+
+  function refreshQnh(){
+    if ($('qnhMeta')) $('qnhMeta').textContent = 'Fetching QNH\u2026';
+    loadLocal(function(){});
+  }
+
+  $('alt').addEventListener('input', () => {
+    state.userEdited = true;
+    render();
+  });
+  $('qnh').addEventListener('input', anchorDefault);
+  $('altM').addEventListener('input', anchorDefault);
+
+  function loadRoutes(){
+    google.script.run
+      .withSuccessHandler(R => { window.LOCAL_ROUTES = R; renderRoutes(); })
+      .withFailureHandler(err => { console.error('routes', err); renderRoutes(); })
+      .getRoutes();
+  }
+
+  anchorDefault();
+  refreshQnh();
+  loadRoutes();
+  setInterval(() => loadLocal(() => {}), 5 * 60 * 1000);
+  setInterval(loadRoutes, 5 * 60 * 1000);
+
+  // ---- AIRCRAFT HANGAR (Google Sheet backed via Apps Script) --------------
+  const FLEET = ['M2-2032', 'M2-2034', 'M2-2038'];
+  const LOCATIONS = ['HQ - Boundary Row', "Guy's Hospital", 'Great Ormond Street'];
+  let HANGAR = {};   // populated from the Sheet
+
+  function hangarDefault(){
+    const o = {};
+    FLEET.forEach(id => o[id] = { airworthy: true, location: LOCATIONS[0], snag: '', mx: '' });
+    return o;
+  }
+
+  function loadHangar(cb){
+    google.script.run
+      .withSuccessHandler(data => {
+        HANGAR = Object.assign(hangarDefault(), data || {});
+        renderHangar();
+        if (cb) cb();
+      })
+      .withFailureHandler(err => {
+        console.error('hangar load', err);
+        HANGAR = hangarDefault();
+        renderHangar();
+      })
+      .getHangar();
+  }
+
+  // Persist a single field change to the Sheet (logged server-side with identity)
+  function pushChange(aircraft, field, value){
+    google.script.run
+      .withFailureHandler(err => console.error('hangar save', err))
+      .setHangarField(aircraft, field, value);
+  }
+
+  function renderHangar(){
+    const body = document.getElementById('hangarBody');
+    if (!body) return;
+    body.innerHTML = FLEET.map(id => {
+      const a = HANGAR[id] || { airworthy: true, location: LOCATIONS[0], snag: '', mx: '' };
+      const locOpts = LOCATIONS.map(l =>
+        `<option value="${l}"${a.location===l?' selected':''}>${l}</option>`).join('');
+      const esc = s => (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+      // AOG cell: CLEAR (+ MX box) when airworthy, red snag box when not
+      let aogCell;
+      if (a.airworthy){
+        aogCell = '<span class="aog-clear">CLEAR</span>' +
+          `<textarea class="mx-note" rows="1" data-ac="${id}" data-mx="1" placeholder="MX note\u2026">${esc(a.mx)}</textarea>`;
+      } else {
+        aogCell = `<textarea class="aog-note" rows="1" data-ac="${id}" data-snag="1" placeholder="Enter snag / AOG detail\u2026">${esc(a.snag)}</textarea>`;
+      }
+
+      return `<div class="ac">
+        <div class="ac-line">
+          <span class="ac-id">${id}</span>
+          <span class="ac-loc">LOCATION <select data-ac="${id}" data-loc="1">${locOpts}</select></span>
+        </div>
+        <div class="ac-line ac-line2">
+          <span class="ac-aw ${a.airworthy?'aw-y':'aw-n'}">AIRWORTHY
+            <span class="aw-toggle ${a.airworthy?'aw-y':'aw-n'}">
+              <button class="y${a.airworthy?' on':''}" data-ac="${id}" data-aw="y">Y</button>
+              <span class="aw-sep">/</span>
+              <button class="n${!a.airworthy?' on':''}" data-ac="${id}" data-aw="n">N</button>
+            </span>
+          </span>
+          <span class="ac-aog">AOG ${aogCell}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Airworthy toggle
+    body.querySelectorAll('[data-aw]').forEach(b => b.onclick = () => {
+      const aw = (b.dataset.aw === 'y');
+      HANGAR[b.dataset.ac].airworthy = aw;
+      pushChange(b.dataset.ac, 'airworthy', aw);
+      renderHangar();
+    });
+    // Location
+    body.querySelectorAll('[data-loc]').forEach(sel => sel.onchange = () => {
+      HANGAR[sel.dataset.ac].location = sel.value;
+      pushChange(sel.dataset.ac, 'location', sel.value);
+    });
+    // Snag note (when N)
+    body.querySelectorAll('[data-snag]').forEach(ta => {
+      const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+      ta.addEventListener('focus', grow);
+      ta.addEventListener('input', () => { grow(); HANGAR[ta.dataset.ac].snag = ta.value; });
+      ta.addEventListener('blur', () => { ta.style.height = ''; pushChange(ta.dataset.ac, 'snag', ta.value); });
+    });
+    // MX note (when Y)
+    body.querySelectorAll('[data-mx]').forEach(ta => {
+      const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+      ta.addEventListener('focus', grow);
+      ta.addEventListener('input', () => { grow(); HANGAR[ta.dataset.ac].mx = ta.value; });
+      ta.addEventListener('blur', () => { ta.style.height = ''; pushChange(ta.dataset.ac, 'mx', ta.value); });
+    });
+  }
+
+  loadHangar();
+  // Refresh shared status periodically, but NEVER while the user is typing
+  // in a hangar field (that would wipe the edit and jump the cursor).
+  setInterval(() => {
+    const el = document.activeElement;
+    const editing = el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' ||
+                           (el.dataset && (el.dataset.note || el.dataset.mx || el.dataset.snag)));
+    if (!editing) loadHangar();
+  }, 60 * 1000);
+
+  // ---- BATTERIES (Google Sheet backed) -----------------------------------
+  const BATT_FIELDS = ['total', 'airworthy', 'guys', 'gosh', 'hq'];
+  let BATT = { total: 0, airworthy: 0, guys: 0, gosh: 0, hq: 0 };
+
+  function battCalc(){
+    const total = +$('b_total').value || 0;
+    const aw = +$('b_airworthy').value || 0;
+    const mx = Math.max(0, total - aw);
+    $('b_mx').textContent = mx;
+  }
+
+  function battApply(){
+    BATT_FIELDS.forEach(f => { if ($('b_'+f)) $('b_'+f).value = BATT[f]; });
+    battCalc();
+  }
+
+  function loadBatteries(){
+    google.script.run
+      .withSuccessHandler(data => {
+        if (data){ BATT = Object.assign(BATT, data); battApply(); }
+      })
+      .withFailureHandler(err => console.error('batt load', err))
+      .getBatteries();
+  }
+
+  function pushBattery(field, value){
+    google.script.run
+      .withFailureHandler(err => console.error('batt save', err))
+      .setBattery(field, value);
+  }
+
+  BATT_FIELDS.forEach(f => {
+    const el = $('b_' + f);
+    if (!el) return;
+    el.addEventListener('input', battCalc);
+    el.addEventListener('change', () => {
+      const v = +el.value || 0;
+      BATT[f] = v;
+      pushBattery(f, v);
+    });
+  });
+
+  loadBatteries();
+  setInterval(() => {
+    const el = document.activeElement;
+    if (!(el && el.classList && el.classList.contains('batt-in'))) loadBatteries();
+  }, 60 * 1000);
+
+  // Live clock with running seconds
+  function tickClock(){
+    const c = document.getElementById('clock');
+    if (c){
+      const n = new Date();
+      const p = x => String(x).padStart(2, '0');
+      const d = p(n.getUTCFullYear() % 100) + p(n.getUTCMonth() + 1) + p(n.getUTCDate());
+      c.textContent = d + '  ' + p(n.getUTCHours()) + ':' + p(n.getUTCMinutes()) + ':' + p(n.getUTCSeconds()) + 'Z';
+    }
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // Background app windows get their timers throttled/paused by Chrome, so
+  // also re-read weather/routes when focused. Hangar is NOT reloaded here to
+  // avoid wiping an in-progress edit.
+  window.addEventListener('focus', () => { loadLocal(() => {}); loadRoutes(); });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { loadLocal(() => {}); loadRoutes(); }
+  });
+
+  // Apps Script can leave a stray text node at the end of the body; remove any
+  // bare text directly under <body> so it doesn't show on screen.
+  (function stripStray(){
+    document.body.childNodes.forEach(n => {
+      if (n.nodeType === 3 && n.textContent.trim()) n.textContent = '';
+    });
+  })();
+})();
+</script>
+</body>
+</html>
