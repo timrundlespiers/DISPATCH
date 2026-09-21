@@ -101,24 +101,55 @@ def post(webhook, text):
     with urllib.request.urlopen(req, timeout=20) as r:
         print("posted:", r.status)
 
+import re as _re
+
+def _find_area(notams, kind):
+    """kind: 'TRA' (EGTR) for GSTT, 'TDA' (EGD) for GOSH. Return (designator, from, to) active today, or None."""
+    pat = r"(EGTR\d+)" if kind == "TRA" else r"(EGD\d+[A-Z]?)"
+    for n in notams:
+        if not n.get("active_today"):
+            continue
+        t = n["text"].upper()
+        if kind == "TRA" and "TRA" not in t and "RESERVED" not in t:
+            continue
+        if kind == "TDA" and "TDA" not in t and "DANGER" not in t:
+            continue
+        m = _re.search(pat, t)
+        if not m:
+            continue
+        # pull FROM/TO times
+        fm = _re.search(r"FROM:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
+        to = _re.search(r"TO:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
+        sch = _re.search(r"SCHEDULE:\s*([0-9]{4}-[0-9]{4})", t)
+        win = sch.group(1) if sch else ((fm.group(1)[-5:] + "-" + to.group(1)[-5:]) if fm and to else "")
+        return (m.group(1), win)
+    return None
+
 def notam_summary():
-    """GO/NOGO per route using the existing notam scripts' logic."""
+    """Per route: jamming check + TRA/TDA active confirmation (times in Zulu from feed)."""
     import importlib.util
     here = os.path.dirname(os.path.abspath(__file__))
     def load(name):
         spec = importlib.util.spec_from_file_location(name[:-3], os.path.join(here, name))
         m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
     lines = ["✈️ *NOTAMs*"]
-    for label, fn in [("GSTT", "southwark_notam_report.py"), ("GOSH", "gosh_notam_report.py")]:
+    for label, fn, kind in [("GSTT", "southwark_notam_report.py", "TRA"),
+                            ("GOSH", "gosh_notam_report.py", "TDA")]:
         try:
             mod = load(fn)
             notams = mod.fetch_notams()
             active = [n for n in notams if n.get("active_today")]
             jam = [n for n in active if n.get("jamming") or mod.is_jamming_notam(f"{n['id']} {n['text']}")]
+            area = _find_area(notams, kind)
             if jam:
-                lines.append(f"*{label}* — 🔴 NOGO — GPS jamming NOTAM active.")
+                lines.append(f"*{label}* — 🔴 NOGO — GPS jamming active.")
             else:
-                lines.append(f"*{label}* — 🟢 GO — clear, nothing restricting the route today.")
+                l = f"*{label}* — 🟢 GO — no jamming."
+                if area:
+                    l += f" {kind} {area[0]} active" + (f" {area[1]} Zulu." if area[1] else ".")
+                else:
+                    l += f" No {kind} active today."
+                lines.append(l)
         except Exception as e:
             lines.append(f"*{label}* — ⚪ status unavailable ({e}).")
     return "\n".join(lines)
