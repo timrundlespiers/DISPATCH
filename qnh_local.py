@@ -9,7 +9,7 @@ import json, os, re, sys, urllib.request
 from datetime import datetime
 
 LAT, LON = 51.5036, -0.0881
-THRESHOLD_MS   = 8.0      # wind limit (m/s)
+THRESHOLD_MS   = 8.23     # wind limit (m/s)
 THRESHOLD_KP   = 6        # geomagnetic limit
 TEMP_MIN       = -10      # operating temp floor (C)
 TEMP_MAX       = 40       # operating temp ceiling (C)
@@ -105,9 +105,10 @@ def build_ops(data, kp_val, metar, extra):
     kp_str    = f"{kp_val}" if kp_val is not None else "N/A"
     kp_status = f"{NOGO} NOGO" if kp_nogo else (f"{GO} OK" if kp_val is not None else "\u2014")
 
+    _today = times[0][:10]
     window = [(t[11:16], s, d, g)
               for t, s, d, g in zip(times, speeds, dirs, gusts)
-              if REPORT_START <= int(t[11:13]) <= REPORT_END]
+              if t[:10] == _today and REPORT_START <= int(t[11:13]) <= REPORT_END]
 
     spds = [w[1] for w in window]
     avg, peak = sum(spds)/len(spds), max(spds)
