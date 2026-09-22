@@ -1,0 +1,20 @@
+name: evening-brief
+on:
+  repository_dispatch:
+    types: [evening]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Evening
+        env:
+          WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
+        run: |
+          python briefing.py weather-tomorrow
