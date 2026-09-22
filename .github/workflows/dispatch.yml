@@ -1,7 +1,7 @@
 name: dispatch-data
 on:
-  schedule:
-    - cron: '*/15 * * * *'
+  repository_dispatch:
+    types: [data]
   workflow_dispatch:
 permissions:
   contents: write
