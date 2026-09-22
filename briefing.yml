@@ -1,0 +1,33 @@
+name: briefings
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'morning or evening'
+        default: 'morning'
+  repository_dispatch:
+    types: [morning, evening]
+permissions:
+  contents: read
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Morning briefings
+        if: github.event.action == 'morning' || github.event.inputs.job == 'morning'
+        env:
+          WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
+          NOTAM_WEBHOOK: ${{ secrets.NOTAM_WEBHOOK }}
+        run: |
+          python briefing.py weather-today
+          python briefing.py notams
+      - name: Evening forecast
+        if: github.event.action == 'evening' || github.event.inputs.job == 'evening'
+        env:
+          WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
+        run: |
+          python briefing.py weather-tomorrow
