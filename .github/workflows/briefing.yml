@@ -1,8 +1,7 @@
 name: briefings
 on:
-  schedule:
-    - cron: '45 6 * * 1-5'
-    - cron: '0 15 * * 0-5'
+  repository_dispatch:
+    types: [morning, evening]
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,7 +14,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Morning briefings
-        if: github.event.schedule == '45 6 * * 1-5'
+        if: github.event.action == 'morning'
         env:
           WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
           NOTAM_WEBHOOK: ${{ secrets.NOTAM_WEBHOOK }}
@@ -23,17 +22,8 @@ jobs:
           python briefing.py weather-today
           python briefing.py notams
       - name: Evening forecast
-        if: github.event.schedule == '0 15 * * 0-5'
+        if: github.event.action == 'evening'
         env:
           WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
         run: |
-          python briefing.py weather-tomorrow
-      - name: Manual test
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
-          NOTAM_WEBHOOK: ${{ secrets.NOTAM_WEBHOOK }}
-        run: |
-          python briefing.py weather-today
-          python briefing.py notams
           python briefing.py weather-tomorrow
