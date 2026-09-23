@@ -214,14 +214,14 @@ def build_ops(data, kp_val, metar, extra):
         "fields": [
             ["Overall", overall],
             ["KP Index", f"{kp_str}  {kp_status}"],
-            ["Current wind", cur_wind_field],
+            ["Current wind 100m", cur_wind_field],
             ["Direction", f"{compass(avg_dir)} ({avg_dir}\u00b0)"],
             ["Current temp", cur_temp_field],
             ["Max temp", max_temp_field],
             ["Overnight low", ov_low_field],
             ["Precipitation", precip_field],
             ["Visibility", vis_field],
-            ["EGLC METAR", wind_field],
+            ["EGLC METAR SURFACE", wind_field],
         ],
         "rows": rows.rstrip(),
     }
