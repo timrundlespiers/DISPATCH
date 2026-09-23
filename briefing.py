@@ -12,7 +12,9 @@ Webhooks come from env vars (set as GitHub Actions secrets):
 import os, sys, json, math, urllib.request, urllib.parse
 from datetime import datetime, timedelta, date
 
-LAT, LON = 51.5045, -0.0865           # Southwark HQ area
+GSTT_LAT, GSTT_LON = 51.5045, -0.0865   # Southwark / GSTT
+GOSH_LAT, GOSH_LON = 51.5242, -0.1234   # GOSH route centroid
+LAT, LON = GSTT_LAT, GSTT_LON
 WIND_LIMIT = 8.23                      # m/s
 KP_LIMIT   = 6
 TEMP_MIN   = 10                        # overnight minimum degC
@@ -38,8 +40,10 @@ def fetch_kp():
     except Exception:
         return None
 
-def get_forecast(days=2):
-    url = (f"https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}"
+def get_forecast(days=2, lat=None, lon=None):
+    la = lat if lat is not None else LAT
+    lo = lon if lon is not None else LON
+    url = (f"https://api.open-meteo.com/v1/forecast?latitude={la}&longitude={lo}"
            f"&hourly=wind_speed_100m,temperature_2m"
            f"&wind_speed_unit=ms&timezone={urllib.parse.quote(TZ)}&forecast_days={days}")
     return fetch_json(url)
@@ -77,20 +81,41 @@ def overnight_low(fc, start_day):
     if not vals: return None
     return min(vals, key=lambda x: x[1])
 
-def weather_block(fc, day_str, kp, label, date_label):
+def _slot_line(slot, kp=None):
+    t, w, go = slot
+    if kp is not None:
+        return f"{t} — {w}. KP {kp}."
+    return f"{t} — {w}, " + ("all under" if go else "exceeds") + f" the {WIND_LIMIT} m/s limit."
+
+def _hi(slot):
+    """peak m/s parsed from a slot's wind string"""
+    try:
+        return float(slot[1].replace("winds","").replace("m/s","").split("–")[-1].strip())
+    except Exception:
+        return None
+
+def weather_block(fc, fc_gosh, day_str, kp, label, date_label):
     am = slot_summary(day_window(fc, day_str, 8, 12))
     pm = slot_summary(day_window(fc, day_str, 13, 17))
     lines = [f"🌬️ *{label}* ({date_label})", "*GSTT*"]
-    if am:
-        t, w, go = am
-        lines.append(f"AM: {t} — {w}, "
-                     + ("all under" if go else "exceeds") + f" the {WIND_LIMIT} m/s limit.")
-    if pm:
-        t, w, go = pm
-        kpstr = f" KP {kp}." if kp is not None else ""
-        lines.append(f"PM: {t} — {w}.{kpstr}")
-    # GOSH shares the same forecast point here; note if identical
-    lines.append("*GOSH* — same as GSTT.")
+    if am: lines.append("AM: " + _slot_line(am))
+    if pm: lines.append("PM: " + _slot_line(pm, kp))
+    g_am = slot_summary(day_window(fc_gosh, day_str, 8, 12))
+    g_pm = slot_summary(day_window(fc_gosh, day_str, 13, 17))
+    note = []
+    for tag, sslot, gslot in [("AM", am, g_am), ("PM", pm, g_pm)]:
+        if not sslot or not gslot:
+            continue
+        if sslot[2] != gslot[2]:
+            note.append(f"{tag} {'GO' if gslot[2] else 'NOGO'} ({gslot[1]})")
+            continue
+        sh, gh = _hi(sslot), _hi(gslot)
+        if sh is not None and gh is not None and abs(sh - gh) >= 0.3:
+            note.append(f"{tag} {gslot[1]}")
+    if note:
+        lines.append("*GOSH* — slightly different — " + "; ".join(note) + ".")
+    else:
+        lines.append("*GOSH* — same as GSTT.")
     return "\n".join(lines)
 
 def post(webhook, text):
@@ -125,6 +150,18 @@ def _find_area(notams, kind):
         return (m.group(1), win)
     return None
 
+def _point_in_poly(lon, lat, poly):
+    """ray casting. poly is list of [lon,lat]."""
+    inside = False
+    n = len(poly); j = n - 1
+    for i in range(n):
+        xi, yi = poly[i][0], poly[i][1]
+        xj, yj = poly[j][0], poly[j][1]
+        if ((yi > lat) != (yj > lat)) and (lon < (xj - xi) * (lat - yi) / (yj - yi + 1e-12) + xi):
+            inside = not inside
+        j = i
+    return inside
+
 def notam_summary():
     """Per route: jamming check + TRA/TDA active confirmation (times in Zulu from feed)."""
     import importlib.util
@@ -141,6 +178,7 @@ def notam_summary():
             active = [n for n in notams if n.get("active_today")]
             jam = [n for n in active if n.get("jamming") or mod.is_jamming_notam(f"{n['id']} {n['text']}")]
             area = _find_area(notams, kind)
+            poly = getattr(mod, "TRA_POLYGON", None) or getattr(mod, "CORRIDOR_POLYGON", None)
             if jam:
                 lines.append(f"*{label}* — 🔴 NOGO — GPS jamming active.")
             else:
@@ -150,6 +188,20 @@ def notam_summary():
                 else:
                     l += f" No {kind} active today."
                 lines.append(l)
+                # NOTAMs falling INSIDE our TRA/TDA boundary
+                if poly:
+                    inside = []
+                    for n in notams:
+                        if not n.get("active_today"): continue
+                        c = n.get("coord")
+                        if not c: continue
+                        lat_n, lon_n = c[0], c[1]
+                        if _point_in_poly(lon_n, lat_n, poly):
+                            inside.append(n["id"])
+                    if inside:
+                        lines.append(f"   ⚠ Inside {kind}: " + ", ".join(inside))
+                    else:
+                        lines.append(f"   No NOTAMs inside the {kind} boundary.")
         except Exception as e:
             lines.append(f"*{label}* — ⚪ status unavailable ({e}).")
     return "\n".join(lines)
@@ -161,16 +213,16 @@ def main():
     today = date.today()
 
     if mode == "weather-today":
-        fc = get_forecast(2); kp = fetch_kp()
+        fc = get_forecast(2); fcg = get_forecast(2, GOSH_LAT, GOSH_LON); kp = fetch_kp()
         d = today.strftime("%Y-%m-%d")
-        txt = weather_block(fc, d, kp, "Weather Today", today.strftime("%A %d %B %Y"))
+        txt = weather_block(fc, fcg, d, kp, "Weather Today", today.strftime("%A %d %B %Y"))
         post(wx_hook, txt)
 
     elif mode == "weather-tomorrow":
-        fc = get_forecast(3); kp = fetch_kp()
+        fc = get_forecast(3); fcg = get_forecast(3, GOSH_LAT, GOSH_LON); kp = fetch_kp()
         tmr = today + timedelta(days=1)
         d = tmr.strftime("%Y-%m-%d")
-        txt = weather_block(fc, d, kp, "Weather Tomorrow's Forecast", tmr.strftime("%A %d %B %Y"))
+        txt = weather_block(fc, fcg, d, kp, "Weather Tomorrow's Forecast", tmr.strftime("%A %d %B %Y"))
         ov = overnight_low(fc, d)
         if ov:
             ok = ov[1] >= TEMP_MIN
