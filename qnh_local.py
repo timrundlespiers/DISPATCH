@@ -28,6 +28,20 @@ def compass(deg):
     return dirs[round(deg / 22.5) % 16]
 
 
+
+def _local_now():
+    from datetime import timezone, timedelta, date
+    now_utc = datetime.now(timezone.utc)
+    y = now_utc.year
+    def last_sun(month):
+        d = date(y, month, 31)
+        while d.weekday() != 6:
+            d = date(y, month, d.day-1)
+        return d
+    bst = last_sun(3) <= now_utc.date() < last_sun(10)
+    local = now_utc + timedelta(hours=1 if bst else 0)
+    return local.strftime("%H:%M") + (" BST" if bst else " GMT")
+
 def fetch_json(url, timeout=30, retries=4, pause=5):
     import time
     last = None
@@ -141,7 +155,9 @@ def build_ops(data, kp_val, metar, extra):
         tick = GO if metar["wind_ms"] <= THRESHOLD_MS else NOGO
         d = metar.get("wind_dir")
         dir_str = f"{compass(d)} {d}\u00b0" if d is not None else "VRB"
-        wind_field = f"{metar['wind_ms']} m/s  {dir_str}{gust_str}{qnh_str}  {tick}  {metar['obs_time']}Z"
+        _dd = metar.get("wind_dir")
+        _cmp = compass(_dd) if _dd is not None else "VRB"
+        wind_field = f"{metar['wind_ms']} m/s {_cmp}"
     else:
         wind_field = "Unavailable"
 
@@ -205,7 +221,7 @@ def build_ops(data, kp_val, metar, extra):
             ["Overnight low", ov_low_field],
             ["Precipitation", precip_field],
             ["Visibility", vis_field],
-            ["EGLC METAR \u2014 actual, surface level", wind_field],
+            ["EGLC METAR", wind_field],
         ],
         "rows": rows.rstrip(),
     }
@@ -244,7 +260,7 @@ if __name__ == "__main__":
     payload = {
         "q": metar.get("qnh"),
         "raw": raw,
-        "t": datetime.now().strftime("%H:%M"),
+        "t": _local_now(),
         "ops": build_ops(wind, kp, metar, extra),
     }
     with open(OUT, "w") as f:
