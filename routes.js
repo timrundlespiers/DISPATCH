@@ -1,1 +1,1 @@
-window.LOCAL_ROUTES = {"asof": "17:30", "items": [{"name": "GSTT", "status": "go", "cause": ""}, {"name": "GOSH", "status": "go", "cause": ""}]};
+window.LOCAL_ROUTES = {"asof": "17:45", "items": [{"name": "GSTT", "status": "go", "cause": ""}, {"name": "GOSH", "status": "go", "cause": ""}]};
