@@ -166,7 +166,7 @@ def _inside_summary(inside, classify, label):
         return "GENERAL"
     counts = Counter(typ(n) for n in inside)
     # friendly labels (plural)
-    names = {"OBSTACLE": "crane/obstacle", "UAS/DRONE": "drone op", "RESTRICTED": "restricted area",
+    names = {"OBSTACLE": "crane", "UAS/DRONE": "drone op", "RESTRICTED": "restricted area",
              "NAV AID": "nav aid", "AERODROME": "aerodrome", "AIRSPACE": "airspace", "GENERAL": "other"}
     parts = []
     for t, c in counts.most_common():
@@ -221,13 +221,12 @@ def notam_summary():
             classify = getattr(mod, "classify_notam", None)
             if jam:
                 lines.append(f"*{label}* — 🔴 NOGO — GPS jamming active.")
+            elif not area:
+                lines.append(f"*{label}* — 🔴 NOGO — no active TDA today.")
             else:
-                l = f"*{label}* — 🟢 GO — no jamming."
-                if area:
-                    akind, adesig, awin = area
-                    l += f" {akind} {adesig} active" + (f" {awin} Zulu." if awin else ".")
-                else:
-                    l += " No TRA/TDA active today."
+                akind, adesig, awin = area
+                l = f"*{label}* — 🟢 GO — no jamming. {akind} {adesig} active"
+                l += f" {awin} Zulu." if awin else "."
                 lines.append(l)
                 # summarise NOTAMs INSIDE our boundary, by type, flag new ones
                 if poly:
