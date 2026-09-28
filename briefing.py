@@ -128,27 +128,66 @@ def post(webhook, text):
 
 import re as _re
 
-def _find_area(notams, kind):
-    """kind: 'TRA' (EGTR) for GSTT, 'TDA' (EGD) for GOSH. Return (designator, from, to) active today, or None."""
-    pat = r"(EGTR\d+)" if kind == "TRA" else r"(EGD\d+[A-Z]?)"
-    for n in notams:
-        if not n.get("active_today"):
-            continue
-        t = n["text"].upper()
-        if kind == "TRA" and "TRA" not in t and "RESERVED" not in t:
-            continue
-        if kind == "TDA" and "TDA" not in t and "DANGER" not in t:
-            continue
-        m = _re.search(pat, t)
-        if not m:
-            continue
+def _find_area(notams, kinds):
+    """kinds: list like ['TRA','TDA']. Return (kind, designator, window) active today, or None."""
+    if isinstance(kinds, str):
+        kinds = [kinds]
+    for kind in kinds:
+        pat = r"(EGTR\d+)" if kind == "TRA" else r"(EGD\d+[A-Z]?)"
+        for n in notams:
+            if not n.get("active_today"):
+                continue
+            t = n["text"].upper()
+            if kind == "TRA" and "TRA" not in t and "RESERVED" not in t:
+                continue
+            if kind == "TDA" and "TDA" not in t and "DANGER" not in t:
+                continue
+            m = _re.search(pat, t)
+            if not m:
+                continue
         # pull FROM/TO times
-        fm = _re.search(r"FROM:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
-        to = _re.search(r"TO:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
-        sch = _re.search(r"SCHEDULE:\s*([0-9]{4}-[0-9]{4})", t)
-        win = sch.group(1) if sch else ((fm.group(1)[-5:] + "-" + to.group(1)[-5:]) if fm and to else "")
-        return (m.group(1), win)
+            fm = _re.search(r"FROM:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
+            to = _re.search(r"TO:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
+            sch = _re.search(r"SCHEDULE:\s*([0-9]{4}-[0-9]{4})", t)
+            win = sch.group(1) if sch else ((fm.group(1)[-5:] + "-" + to.group(1)[-5:]) if fm and to else "")
+            return (kind, m.group(1), win)
     return None
+
+def _inside_summary(inside, classify, label):
+    """Summarise NOTAMs inside the boundary by type, and flag any new since last run."""
+    if not inside:
+        return "No NOTAMs inside the boundary."
+    # count by friendly type
+    from collections import Counter
+    def typ(n):
+        if classify:
+            try: return classify(n["text"])[1]
+            except Exception: pass
+        return "GENERAL"
+    counts = Counter(typ(n) for n in inside)
+    # friendly labels (plural)
+    names = {"OBSTACLE": "crane/obstacle", "UAS/DRONE": "drone op", "RESTRICTED": "restricted area",
+             "NAV AID": "nav aid", "AERODROME": "aerodrome", "AIRSPACE": "airspace", "GENERAL": "other"}
+    parts = []
+    for t, c in counts.most_common():
+        nm = names.get(t, t.lower())
+        parts.append(f"{c} {nm}" + ("s" if c > 1 and not nm.endswith("s") else ""))
+    summary = ", ".join(parts)
+    # new tracking via state file
+    import os, json
+    state_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"inside_{label.lower()}.json")
+    ids_now = sorted(n["id"] for n in inside)
+    prev = []
+    try:
+        with open(state_path) as f: prev = json.load(f)
+    except Exception: pass
+    new_ids = [i for i in ids_now if i not in prev]
+    try:
+        with open(state_path, "w") as f: json.dump(ids_now, f)
+    except Exception: pass
+    if new_ids:
+        return f"Inside boundary: {summary}. ⚠ {len(new_ids)} NEW ({', '.join(new_ids)})."
+    return f"Inside boundary: {summary}. No new NOTAMs."
 
 def _point_in_poly(lon, lat, poly):
     """ray casting. poly is list of [lon,lat]."""
@@ -170,38 +209,36 @@ def notam_summary():
         spec = importlib.util.spec_from_file_location(name[:-3], os.path.join(here, name))
         m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
     lines = ["✈️ *NOTAMs*"]
-    for label, fn, kind in [("GSTT", "southwark_notam_report.py", "TRA"),
-                            ("GOSH", "gosh_notam_report.py", "TDA")]:
+    for label, fn, kinds in [("GSTT", "southwark_notam_report.py", ["TRA", "TDA"]),
+                             ("GOSH", "gosh_notam_report.py", ["TDA"])]:
         try:
             mod = load(fn)
             notams = mod.fetch_notams()
             active = [n for n in notams if n.get("active_today")]
             jam = [n for n in active if n.get("jamming") or mod.is_jamming_notam(f"{n['id']} {n['text']}")]
-            area = _find_area(notams, kind)
+            area = _find_area(notams, kinds)
             poly = getattr(mod, "TRA_POLYGON", None) or getattr(mod, "CORRIDOR_POLYGON", None)
+            classify = getattr(mod, "classify_notam", None)
             if jam:
                 lines.append(f"*{label}* — 🔴 NOGO — GPS jamming active.")
             else:
                 l = f"*{label}* — 🟢 GO — no jamming."
                 if area:
-                    l += f" {kind} {area[0]} active" + (f" {area[1]} Zulu." if area[1] else ".")
+                    akind, adesig, awin = area
+                    l += f" {akind} {adesig} active" + (f" {awin} Zulu." if awin else ".")
                 else:
-                    l += f" No {kind} active today."
+                    l += " No TRA/TDA active today."
                 lines.append(l)
-                # NOTAMs falling INSIDE our TRA/TDA boundary
+                # summarise NOTAMs INSIDE our boundary, by type, flag new ones
                 if poly:
                     inside = []
                     for n in notams:
                         if not n.get("active_today"): continue
                         c = n.get("coord")
                         if not c: continue
-                        lat_n, lon_n = c[0], c[1]
-                        if _point_in_poly(lon_n, lat_n, poly):
-                            inside.append(n["id"])
-                    if inside:
-                        lines.append(f"   ⚠ Inside {kind}: " + ", ".join(inside))
-                    else:
-                        lines.append(f"   No NOTAMs inside the {kind} boundary.")
+                        if _point_in_poly(c[1], c[0], poly):
+                            inside.append(n)
+                    lines.append("   " + _inside_summary(inside, classify, label))
         except Exception as e:
             lines.append(f"*{label}* — ⚪ status unavailable ({e}).")
     return "\n".join(lines)
