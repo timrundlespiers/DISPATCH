@@ -26,16 +26,14 @@ def load(name):
     return mod
 
 
-def _area_active(notams, kinds):
-    """True if a TRA (EGTR) or TDA (EGD) in kinds is active today."""
+def _area_active(notams, designators):
+    """True if one of our own area designators is active today."""
     for n in notams:
         if not n.get("active_today"):
             continue
         t = n["text"].upper()
-        for kind in kinds:
-            if kind == "TRA" and ("TRA" in t or "RESERVED" in t) and re.search(r"EGTR\d+", t):
-                return True
-            if kind == "TDA" and ("TDA" in t or "DANGER" in t) and re.search(r"EGD\d+", t):
+        for d in designators:
+            if d.upper() in t:
                 return True
     return False
 
@@ -58,7 +56,7 @@ def route_status(mod, kinds):
 
     # Our TDA/TRA must be active, else NOGO
     if not _area_active(notams, kinds):
-        return "nogo", "no active TDA"
+        return "nogo", "area not active"
 
     return "go", ""
 
@@ -67,8 +65,8 @@ def main():
     sw = load("southwark_notam_report.py")
     gh = load("gosh_notam_report.py")
 
-    gstt_status, gstt_cause = route_status(sw, ["TRA", "TDA"])
-    gosh_status, gosh_cause = route_status(gh, ["TDA"])
+    gstt_status, gstt_cause = route_status(sw, ["EGTR196", "EGD196A"])
+    gosh_status, gosh_cause = route_status(gh, ["EGD174A"])
 
     routes = {
         "asof": datetime.now().strftime("%H:%M"),
