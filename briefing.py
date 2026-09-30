@@ -128,29 +128,21 @@ def post(webhook, text):
 
 import re as _re
 
-def _find_area(notams, kinds):
-    """kinds: list like ['TRA','TDA']. Return (kind, designator, window) active today, or None."""
-    if isinstance(kinds, str):
-        kinds = [kinds]
-    for kind in kinds:
-        pat = r"(EGTR\d+)" if kind == "TRA" else r"(EGD\d+[A-Z]?)"
+def _find_area(notams, designators):
+    """designators: list of our own area codes e.g. ['EGTR196','EGD196A'].
+    Return (designator, window) for the first one active today, or None."""
+    for desig in designators:
         for n in notams:
             if not n.get("active_today"):
                 continue
             t = n["text"].upper()
-            if kind == "TRA" and "TRA" not in t and "RESERVED" not in t:
+            if desig.upper() not in t:
                 continue
-            if kind == "TDA" and "TDA" not in t and "DANGER" not in t:
-                continue
-            m = _re.search(pat, t)
-            if not m:
-                continue
-        # pull FROM/TO times
             fm = _re.search(r"FROM:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
             to = _re.search(r"TO:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
             sch = _re.search(r"SCHEDULE:\s*([0-9]{4}-[0-9]{4})", t)
             win = sch.group(1) if sch else ((fm.group(1)[-5:] + "-" + to.group(1)[-5:]) if fm and to else "")
-            return (kind, m.group(1), win)
+            return (desig, win)
     return None
 
 def _inside_summary(inside, classify, label):
@@ -181,13 +173,18 @@ def _inside_summary(inside, classify, label):
     try:
         with open(state_path) as f: prev = json.load(f)
     except Exception: pass
-    new_ids = [i for i in ids_now if i not in prev]
+    prev_set = set(prev)
+    new = [n for n in inside if n["id"] not in prev_set]
     try:
         with open(state_path, "w") as f: json.dump(ids_now, f)
     except Exception: pass
-    if new_ids:
-        return f"Inside boundary: {summary}. ⚠ {len(new_ids)} NEW ({', '.join(new_ids)})."
-    return f"Inside boundary: {summary}. No new NOTAMs."
+    if new:
+        def _t(n):
+            try: return classify(n["text"])[1].lower() if classify else "notam"
+            except Exception: return "notam"
+        newlist = ", ".join(f"{n['id']} ({_t(n)})" for n in new)
+        return f"Inside boundary: {summary}. \u26a0 {len(new)} NEW vs yesterday \u2014 CHECK: {newlist}."
+    return f"Inside boundary: {summary}. No change from yesterday."
 
 def _point_in_poly(lon, lat, poly):
     """ray casting. poly is list of [lon,lat]."""
@@ -209,23 +206,23 @@ def notam_summary():
         spec = importlib.util.spec_from_file_location(name[:-3], os.path.join(here, name))
         m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
     lines = ["✈️ *NOTAMs*"]
-    for label, fn, kinds in [("GSTT", "southwark_notam_report.py", ["TRA", "TDA"]),
-                             ("GOSH", "gosh_notam_report.py", ["TDA"])]:
+    for label, fn, desigs in [("GSTT", "southwark_notam_report.py", ["EGTR196", "EGD196A"]),
+                              ("GOSH", "gosh_notam_report.py", ["EGD174A"])]:
         try:
             mod = load(fn)
             notams = mod.fetch_notams()
             active = [n for n in notams if n.get("active_today")]
             jam = [n for n in active if n.get("jamming") or mod.is_jamming_notam(f"{n['id']} {n['text']}")]
-            area = _find_area(notams, kinds)
+            area = _find_area(notams, desigs)
             poly = getattr(mod, "TRA_POLYGON", None) or getattr(mod, "CORRIDOR_POLYGON", None)
             classify = getattr(mod, "classify_notam", None)
             if jam:
                 lines.append(f"*{label}* — 🔴 NOGO — GPS jamming active.")
             elif not area:
-                lines.append(f"*{label}* — 🔴 NOGO — no active TDA today.")
+                lines.append(f"*{label}* — 🔴 NOGO — our area not active today ({'/'.join(desigs)}).")
             else:
-                akind, adesig, awin = area
-                l = f"*{label}* — 🟢 GO — no jamming. {akind} {adesig} active"
+                adesig, awin = area
+                l = f"*{label}* — 🟢 GO — no jamming. {adesig} active"
                 l += f" {awin} Zulu." if awin else "."
                 lines.append(l)
                 # summarise NOTAMs INSIDE our boundary, by type, flag new ones

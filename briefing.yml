@@ -1,14 +1,10 @@
 name: briefings
 on:
-  workflow_dispatch:
-    inputs:
-      job:
-        description: 'morning or evening'
-        default: 'morning'
   repository_dispatch:
     types: [morning, evening]
+  workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   brief:
     runs-on: ubuntu-latest
@@ -18,7 +14,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Morning briefings
-        if: github.event.action == 'morning' || github.event.inputs.job == 'morning'
+        if: github.event.action == 'morning'
         env:
           WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
           NOTAM_WEBHOOK: ${{ secrets.NOTAM_WEBHOOK }}
@@ -26,8 +22,16 @@ jobs:
           python briefing.py weather-today
           python briefing.py notams
       - name: Evening forecast
-        if: github.event.action == 'evening' || github.event.inputs.job == 'evening'
+        if: github.event.action == 'evening'
         env:
           WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
         run: |
           python briefing.py weather-tomorrow
+      - name: Save NOTAM comparison state
+        if: github.event.action == 'morning'
+        run: |
+          git config user.name "dispatch-bot"
+          git config user.email "bot@dispatch"
+          git add inside_gstt.json inside_gosh.json 2>/dev/null || true
+          git commit -m "notam state" || echo "no change"
+          git push || echo "push skipped"
