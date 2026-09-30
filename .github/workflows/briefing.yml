@@ -4,7 +4,7 @@ on:
     types: [morning, evening]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   brief:
     runs-on: ubuntu-latest
@@ -27,3 +27,11 @@ jobs:
           WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
         run: |
           python briefing.py weather-tomorrow
+      - name: Save NOTAM comparison state
+        if: github.event.action == 'morning'
+        run: |
+          git config user.name "dispatch-bot"
+          git config user.email "bot@dispatch"
+          git add inside_gstt.json inside_gosh.json 2>/dev/null || true
+          git commit -m "notam state" || echo "no change"
+          git push || echo "push skipped"
