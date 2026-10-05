@@ -32,7 +32,7 @@ jobs:
         run: |
           git config user.name "dispatch-bot"
           git config user.email "bot@dispatch"
-          git add -f inside_gstt.json || true
-          git add -f inside_gosh.json || true
+          git pull --rebase || true
+          git add -f inside_gstt.json inside_gosh.json
           git commit -m "notam state" || echo "no change"
           git push || echo "push skipped"
