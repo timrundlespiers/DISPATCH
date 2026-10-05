@@ -28,7 +28,7 @@ jobs:
         run: |
           python briefing.py weather-tomorrow
       - name: Save NOTAM comparison state
-        if: always()
+        if: github.event.action == 'morning' || github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "dispatch-bot"
           git config user.email "bot@dispatch"
