@@ -1,7 +1,7 @@
 name: briefings
 on:
   repository_dispatch:
-    types: [morning, evening]
+    types: [morning, evening, recheck]
   workflow_dispatch:
 permissions:
   contents: write
@@ -27,13 +27,20 @@ jobs:
           WEATHER_WEBHOOK: ${{ secrets.WEATHER_WEBHOOK }}
         run: |
           python briefing.py weather-tomorrow
-      - name: Save NOTAM comparison state
-        if: github.event.action == 'morning' || github.event_name == 'workflow_dispatch'
+      - name: NOTAM recheck
+        if: github.event.action == 'recheck'
+        env:
+          NOTAM_WEBHOOK: ${{ secrets.NOTAM_WEBHOOK }}
+        run: |
+          python briefing.py notams-recheck
+      - name: Save state
+        if: always()
         run: |
           git config user.name "dispatch-bot"
           git config user.email "bot@dispatch"
-          git pull --rebase || true
           git add -f inside_gstt.json || true
           git add -f inside_gosh.json || true
-          git commit -m "notam state" || echo "no change"
+          git add -f notam_status.json || true
+          git commit -m "state" || echo "no change"
+          git pull --rebase || true
           git push || echo "push skipped"
