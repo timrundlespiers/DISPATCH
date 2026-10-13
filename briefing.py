@@ -230,10 +230,12 @@ def notam_summary():
                 lines.append(l)
                 status[label] = "go"
                 # summarise NOTAMs INSIDE our boundary, by type, flag new ones
+                OWN = ["EGTR196", "EGD196A", "EGD174A"]
                 if poly:
                     inside = []
                     for n in notams:
                         if not n.get("active_today"): continue
+                        if any(o in n["text"].upper() for o in OWN): continue
                         c = n.get("coord")
                         if not c: continue
                         if _point_in_poly(c[1], c[0], poly):
