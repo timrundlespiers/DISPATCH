@@ -206,6 +206,7 @@ def notam_summary():
         spec = importlib.util.spec_from_file_location(name[:-3], os.path.join(here, name))
         m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m
     lines = ["✈️ *NOTAMs*"]
+    status = {}
     for label, fn, desigs in [("GSTT", "southwark_notam_report.py", ["EGTR196", "EGD196A"]),
                               ("GOSH", "gosh_notam_report.py", ["EGD174A"])]:
         try:
@@ -218,13 +219,16 @@ def notam_summary():
             classify = getattr(mod, "classify_notam", None)
             if jam:
                 lines.append(f"*{label}* — 🔴 NOGO — GPS jamming active.")
+                status[label] = "nogo"
             elif not area:
                 lines.append(f"*{label}* — 🔴 NOGO — our area not active today ({'/'.join(desigs)}).")
+                status[label] = "nogo"
             else:
                 adesig, awin = area
                 l = f"*{label}* — 🟢 GO — no jamming. {adesig} active"
                 l += f" {awin} Zulu." if awin else "."
                 lines.append(l)
+                status[label] = "go"
                 # summarise NOTAMs INSIDE our boundary, by type, flag new ones
                 if poly:
                     inside = []
@@ -237,7 +241,21 @@ def notam_summary():
                     lines.append("   " + _inside_summary(inside, classify, label))
         except Exception as e:
             lines.append(f"*{label}* — ⚪ status unavailable ({e}).")
-    return "\n".join(lines)
+            status[label] = "unknown"
+    return "\n".join(lines), status
+
+def _status_path():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "notam_status.json")
+
+def _save_status(status):
+    try:
+        with open(_status_path(), "w") as f: json.dump(status, f)
+    except Exception: pass
+
+def _load_status():
+    try:
+        with open(_status_path()) as f: return json.load(f)
+    except Exception: return {}
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -264,10 +282,21 @@ def main():
         post(wx_hook, txt)
 
     elif mode == "notams":
-        post(nt_hook, notam_summary())
+        txt, status = notam_summary()
+        post(nt_hook, txt)
+        _save_status(status)
+
+    elif mode == "notams-recheck":
+        txt, status = notam_summary()
+        prev = _load_status()
+        if status != prev:
+            post(nt_hook, "🔄 *NOTAM UPDATE — status changed since earlier*\n" + txt)
+            _save_status(status)
+        else:
+            print("no status change, not posting")
 
     else:
-        print("usage: briefing.py [weather-today|weather-tomorrow|notams]")
+        print("usage: briefing.py [weather-today|weather-tomorrow|notams|notams-recheck]")
 
 if __name__ == "__main__":
     main()
