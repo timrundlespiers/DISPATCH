@@ -274,7 +274,7 @@ def main():
         tmr = today + timedelta(days=1)
         d = tmr.strftime("%Y-%m-%d")
         txt = weather_block(fc, fcg, d, kp, "Weather Tomorrow's Forecast", tmr.strftime("%A %d %B %Y"))
-        ov = overnight_low(fc, d)
+        ov = overnight_low(fc, today.strftime("%Y-%m-%d"))
         if ov:
             ok = ov[1] >= TEMP_MIN
             tick = "🟢" if ok else "🔴"
