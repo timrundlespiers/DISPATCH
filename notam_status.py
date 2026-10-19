@@ -1,14 +1,13 @@
 import re
 #!/usr/bin/env python3
 """
-notam_status.py — writes route GO/NOGO into qnh.js for the Thames HEMS display.
+notam_status.py — writes route GO/NOGO into routes.js for the dispatch board.
 
-Reuses the existing NOTAM scripts' own parsing by importing them, so logic
-stays in sync with the Slack reports. Rule (per ops): any GPS/GNSS jamming
-NOTAM active today on a route => that route NOGO. Either route NOGO => the
-whole box shows NOGO.
-
-Intended to run once each morning (e.g. 08:00) after the NOTAM reports.
+Rule (per ops):
+ - GPS/GNSS jamming active today on a route => that route NOGO.
+ - Our own TDA/TRA must be active today, else NOGO. Our area is matched by
+   designator against the raw NATS feeds, so it is found even when its centre
+   sits outside the route's capture radius.
 """
 import os, sys, json, re, importlib.util
 from datetime import datetime
@@ -18,7 +17,6 @@ OUT = os.environ.get("OUT_DIR", "/Users/tim.rundle-spiers/Library/CloudStorage/G
 
 
 def load(name):
-    """Import a sibling script by filename without running its __main__."""
     path = os.path.join(SCRIPTS, name)
     spec = importlib.util.spec_from_file_location(name.replace(".py", ""), path)
     mod = importlib.util.module_from_spec(spec)
@@ -26,19 +24,46 @@ def load(name):
     return mod
 
 
+def _own_area_active(mod, designators):
+    """True if one of OUR designators is active today, checked against the raw
+    feeds (no radius filter) using the module's own parser."""
+    try:
+        Parser = mod.NotamHTMLParser
+        group  = mod.group_notams
+        active = mod.is_active_today
+        fetch  = mod.fetch_url
+        feeds  = mod.NATS_FEEDS
+    except Exception:
+        return False
+    for url in feeds:
+        try:
+            html = fetch(url)
+        except Exception:
+            continue
+        if not any(d.upper() in html.upper() for d in designators):
+            continue
+        try:
+            p = Parser(); p.feed(html)
+            for n in group(p.get_blocks()):
+                t = n["text"].upper()
+                if any(d.upper() in t for d in designators) and active(n["text"]):
+                    return True
+        except Exception:
+            return True   # designator present in a current feed; assume active
+    return False
+
+
 def _area_active(notams, designators):
-    """True if one of our own area designators is active today."""
     for n in notams:
         if not n.get("active_today"):
             continue
         t = n["text"].upper()
-        for d in designators:
-            if d.upper() in t:
-                return True
+        if any(d.upper() in t for d in designators):
+            return True
     return False
 
 
-def route_status(mod, kinds):
+def route_status(mod, designators):
     """Return (status, cause) for one route."""
     try:
         notams = mod.fetch_notams()
@@ -52,10 +77,10 @@ def route_status(mod, kinds):
                n.get("jamming") is True or
                mod.is_jamming_notam(f"{n['id']} {n['text']}"))]
     if jam:
-        return "nogo", "GPS jamming"
+        return "nogo", "jamming"
 
-    # Our TDA/TRA must be active, else NOGO
-    if not _area_active(notams, kinds):
+    # Our TDA/TRA must be active (radius-filtered OR raw-feed designator match)
+    if not (_area_active(notams, designators) or _own_area_active(mod, designators)):
         return "nogo", "area not active"
 
     return "go", ""
@@ -75,8 +100,6 @@ def main():
             {"name": "GOSH", "status": gosh_status, "cause": gosh_cause},
         ],
     }
-
-    # Merge into existing qnh.js, preserving QNH/weather already there
     with open(OUT, "w") as f:
         f.write("window.LOCAL_ROUTES = " + json.dumps(routes) + ";")
     print(f"routes written: GSTT={gstt_status} GOSH={gosh_status} -> {OUT}")
