@@ -128,21 +128,41 @@ def post(webhook, text):
 
 import re as _re
 
-def _find_area(notams, designators):
-    """designators: list of our own area codes e.g. ['EGTR196','EGD196A'].
-    Return (designator, window) for the first one active today, or None."""
+def _win_from_text(t):
+    fm = _re.search(r"FROM:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
+    to = _re.search(r"TO:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
+    sch = _re.search(r"SCHEDULE:\s*([0-9]{4}-[0-9]{4})", t)
+    return sch.group(1) if sch else ((fm.group(1)[-5:] + "-" + to.group(1)[-5:]) if fm and to else "")
+
+def _find_area(notams, designators, mod=None):
+    """Return (designator, window) for the first of OUR designators active today.
+    Falls back to the raw NATS feeds (no radius filter) so our area is found even
+    when its centre sits outside the route capture radius."""
     for desig in designators:
         for n in notams:
             if not n.get("active_today"):
                 continue
             t = n["text"].upper()
-            if desig.upper() not in t:
-                continue
-            fm = _re.search(r"FROM:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
-            to = _re.search(r"TO:\s*([0-9]{2} [A-Z]{3} [0-9]{4} [0-9]{2}:[0-9]{2})", t)
-            sch = _re.search(r"SCHEDULE:\s*([0-9]{4}-[0-9]{4})", t)
-            win = sch.group(1) if sch else ((fm.group(1)[-5:] + "-" + to.group(1)[-5:]) if fm and to else "")
-            return (desig, win)
+            if desig.upper() in t:
+                return (desig, _win_from_text(t))
+    # raw-feed fallback
+    if mod is not None:
+        try:
+            Parser = mod.NotamHTMLParser; group = mod.group_notams
+            active = mod.is_active_today; fetch = mod.fetch_url
+            for url in mod.NATS_FEEDS:
+                try: html = fetch(url)
+                except Exception: continue
+                if not any(d.upper() in html.upper() for d in designators):
+                    continue
+                p = Parser(); p.feed(html)
+                for n in group(p.get_blocks()):
+                    t = n["text"].upper()
+                    for desig in designators:
+                        if desig.upper() in t and active(n["text"]):
+                            return (desig, _win_from_text(t))
+        except Exception:
+            pass
     return None
 
 def _inside_summary(inside, classify, label):
@@ -214,7 +234,7 @@ def notam_summary():
             notams = mod.fetch_notams()
             active = [n for n in notams if n.get("active_today")]
             jam = [n for n in active if n.get("jamming") or mod.is_jamming_notam(f"{n['id']} {n['text']}")]
-            area = _find_area(notams, desigs)
+            area = _find_area(notams, desigs, mod)
             poly = getattr(mod, "TRA_POLYGON", None) or getattr(mod, "CORRIDOR_POLYGON", None)
             classify = getattr(mod, "classify_notam", None)
             if jam:
