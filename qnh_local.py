@@ -111,8 +111,8 @@ def fetch_kp():
 
 def build_ops(data, kp_val, metar, extra):
     times  = data["hourly"]["time"]
-    speeds = data["hourly"]["wind_speed_100m"]
-    dirs   = data["hourly"]["wind_direction_100m"]
+    speeds = data["hourly"]["wind_speed_80m"]
+    dirs   = data["hourly"]["wind_direction_80m"]
     gusts  = data["hourly"]["wind_gusts_10m"]
 
     kp_nogo   = kp_val is not None and kp_val >= THRESHOLD_KP
@@ -214,7 +214,7 @@ def build_ops(data, kp_val, metar, extra):
         "fields": [
             ["Overall", overall],
             ["KP Index", f"{kp_str}  {kp_status}"],
-            ["Current wind 100m", cur_wind_field],
+            ["Current wind 80m", cur_wind_field],
             ["Direction", f"{compass(avg_dir)} ({avg_dir}\u00b0)"],
             ["Current temp", cur_temp_field],
             ["Max temp", max_temp_field],
@@ -232,9 +232,9 @@ if __name__ == "__main__":
     metar = parse_metar(raw)
     wind = fetch_json(
         f"https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}"
-        f"&hourly=wind_speed_100m,wind_direction_100m,wind_gusts_10m,precipitation,visibility,temperature_2m"
+        f"&hourly=wind_speed_80m,wind_direction_80m,wind_gusts_10m,precipitation,visibility,temperature_2m"
         f"&daily=temperature_2m_max"
-        f"&wind_speed_unit=ms&timezone=Europe%2FLondon&forecast_days=2")
+        f"&models=ukmo_seamless&wind_speed_unit=ms&timezone=Europe%2FLondon&forecast_days=2")
 
     # daytime-window extras
     hh = wind["hourly"]
