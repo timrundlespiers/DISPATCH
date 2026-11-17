@@ -17,8 +17,13 @@ jobs:
         env:
           OUT_DIR: ${{ github.workspace }}
         run: |
-          python qnh_local.py
-          python notam_status.py
+          for s in qnh_local notam_status; do
+            ok=0
+            for i in 1 2 3; do
+              python $s.py && { ok=1; break; } || sleep 10
+            done
+            [ $ok -eq 1 ] || echo "$s skipped (network); keeping last data"
+          done
       - name: Commit data
         run: |
           git config user.name "dispatch-bot"
